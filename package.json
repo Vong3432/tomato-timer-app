@@ -1,0 +1,15 @@
+{
+  "engines": {
+    "node": "16.x"
+  },
+  "scripts": {
+    "watch:tailcss": "npx tailwindcss -i ./styles/index.css -o ./dist/output.css --watch",
+    "dev": "npm run watch:tailcss"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.0.24"
+  },
+  "dependencies": {
+    "tw-elements": "^1.0.0-alpha12"
+  }
+}
