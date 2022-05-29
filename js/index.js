@@ -1,3 +1,5 @@
+let worker = new Worker("../js/timer.js")
+
 /** ================================== 
  * Variables
  * =================================== */
@@ -16,7 +18,6 @@ const demoCheckBox = document.getElementById("demoCheckBox")
 /** ================================== 
  * States
  * =================================== */
-let timer;
 
 let mins = 0;
 let secs = 0;
@@ -38,6 +39,7 @@ const animateHideSidebarClass = " ease-in translate-x-full"
  * =================================== */
 async function load() {
     init()
+
     await generateQuotes({ toElemID: "quote" })
 }
 
@@ -56,39 +58,39 @@ function setupTimerLabel() {
             break;
         case "paused":
             timerLabel.style.display = "block"
-            clearInterval(timer)
-            break;
         case "started": {
-            // update timer
-            if (secs < 60) {
-                secs++
-            } else {
-                secs = 0
-
-                let max = isInRestMode ? 4 : 24 // max is 4 for rest mode, 24 for normal mode (based on the rules in tomato timer)
-
-                if (mins < max) {
-                    mins++
-                } else {
-                    mins = 0
-
-                    if (isInRestMode) {
-                        switchToNormal()
-                    } else {
-                        switchToRest()
-                    }
-                }
-            }
-
             // format to something like "25:00"
             let formattedMins = mins.toFixed(0).padStart(2, "0")
             let formattedSecss = secs.toFixed(0).padStart(2, "0")
 
             timerLabel.innerHTML = `${formattedMins}:${formattedSecss}`
             timerLabel.style.display = "block"
+            break;
         }
 
     }
+}
+
+worker.onmessage = function (event) {
+    const { secs: returnedSecs, mins: returnedMins } = event.data
+
+    let max = isInRestMode ? 5 : 25 // max is 5 for rest mode, 25 for normal mode (based on the rules in tomato timer)
+    if (mins >= max) {
+        // is over, reset
+        playNotifySound();
+
+        if (isInRestMode) {
+            switchToNormal()
+        } else {
+            switchToRest()
+        }
+    } else {
+        // continue counting
+        secs = returnedSecs;
+        mins = returnedMins;
+    }
+
+    updateUI();
 }
 
 function setupStateLabel() {
@@ -97,6 +99,7 @@ function setupStateLabel() {
             // Hide state label when timer is stopped.
             stateLabel.innerText = ""
             stateLabel.style.display = "none"
+
             break;
         case "paused":
             stateLabel.innerText = "Paused"
@@ -225,25 +228,39 @@ function switchToRest() {
     pauseTimer();
 }
 
+function updateWorker() {
+    worker.postMessage({
+        mins,
+        secs,
+        isInRestMode,
+        timerState,
+        isDemoMode: demoMode
+    })
+}
+
 function startTimer() {
-    const interval = demoMode ? 10 : 1000;
+    document.title = "Tomato Timer"
     timerState = "started"
-    timer = setInterval(setupTimerLabel, interval)
-    updateUI()
+    updateUI();
+    updateWorker()
 }
 
 function pauseTimer() {
+    document.title = "PAUSED"
     timerState = "paused"
-    clearInterval(timer)
     updateUI()
+    updateWorker()
 }
 
 function stopTimer() {
+    document.title = "Tomato Timer"
+
     timerState = "stopped"
     isInRestMode = false
     mins = 0;
     secs = 0;
-    clearInterval(timer)
+
+    updateWorker()
     updateUI()
 }
 
@@ -267,7 +284,6 @@ function hideSidebar() {
 
 function switchDemoMode({ demo }) {
     demoMode = demo
-    clearInterval(timer)
     pauseTimer()
 }
 
@@ -312,15 +328,15 @@ function onMainTapped(e) {
             showStopBtn()
             break;
     }
+    preconfig();
 }
 
 function onStopBtnPressed(e) {
     e.stopPropagation();
 
     quoteText.innerHTML = "" // clear previous quote
-    generateQuotes({ toElemID: "quote" })
     stopTimer()
-    updateUI()
+    generateQuotes({ toElemID: "quote" })
 }
 
 /** ================================== 
