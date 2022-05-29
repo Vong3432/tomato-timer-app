@@ -5,7 +5,7 @@ let isInRestMode = false
 
 function count() {
     // update timer
-    if (secs < 60) {
+    if (secs < 59) {
         secs++
     } else {
         secs = 0
